@@ -1,3 +1,43 @@
+server:
+  port: 8092
+  # nginx/caddy 뒤에서 X-Forwarded-*로 원래 scheme/host를 복원 (WebSocket origin 검사에 필요)
+  forward-headers-strategy: framework
+
 spring:
   application:
     name: chat
+  config:
+    import: optional:file:.env[.properties]
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:chat}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+jwt:
+  # board와 동일한 Base64 secret. 기본값 없음 — .env 또는 환경변수 필수
+  secret: ${JWT_SECRET}
+
+app:
+  board:
+    schema: ${APP_BOARD_SCHEMA:board}
+  ws:
+    allowed-origin-patterns: ${APP_WS_ALLOWED_ORIGINS:http://localhost:*}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+logging:
+  level:
+    com.example.chat: debug

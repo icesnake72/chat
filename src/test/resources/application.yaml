@@ -1,0 +1,33 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:chat;MODE=MySQL;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema-board.sql
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+jwt:
+  secret: dGVzdC1zZWNyZXQtZm9yLWNoYXQtdW5pdC10ZXN0cy1vbmx5LTEyMzQ1Njc4OTA=
+
+app:
+  board:
+    schema: board
+  ws:
+    allowed-origin-patterns: "*"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health

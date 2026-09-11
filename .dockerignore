@@ -1,0 +1,14 @@
+.git
+.gitignore
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+.env
+*.log
+.idea/
+*.iml
+.vscode/
+.DS_Store
+docs/
+scripts/
+frontend/
