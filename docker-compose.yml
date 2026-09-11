@@ -1,0 +1,36 @@
+# chat 스택 — board compose가 만든 external 네트워크(board-db-net)에 합류해
+# mysql-8 / board-redis 에 컨테이너명으로 접근한다. board 쪽 파일은 건드리지 않는다.
+#
+#   로컬:   docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
+#   서버:   docker compose up -d --no-build --wait   (이미지는 CI가 GHCR에 push)
+name: chat
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ghcr.io/icesnake72/chat-app:latest
+    container_name: chat-app
+    env_file:
+      - .env                       # JWT_SECRET, DB_PASSWORD 등
+    environment:
+      DB_HOST: mysql-8
+      DB_PORT: "3306"
+      DB_NAME: ${DB_NAME:-chat}
+      REDIS_HOST: board-redis      # 컨테이너명 (board compose의 서비스명 redis 대신)
+      REDIS_PORT: "6379"
+      TZ: Asia/Seoul
+    networks:
+      - board-db-net
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8092/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    restart: unless-stopped
+
+networks:
+  board-db-net:
+    external: true
