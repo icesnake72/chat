@@ -2,6 +2,8 @@ package com.example.chat.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 
 import com.example.chat.global.exception.ErrorCode;
@@ -25,6 +27,7 @@ class StompAuthChannelInterceptorTest {
   @Mock BearerTokenAuthenticator authenticator;
   @Mock JwtTokenProvider tokenProvider;
   @Mock TokenDenylist tokenDenylist;
+  @Mock SubscriptionAuthorizer subscriptionAuthorizer;
   @Mock MessageChannel channel;
   @InjectMocks StompAuthChannelInterceptor interceptor;
 
@@ -117,6 +120,30 @@ class StompAuthChannelInterceptorTest {
     assertThatThrownBy(() -> interceptor.preSend(message(accessor), channel))
         .isInstanceOf(StompAuthException.class)
         .extracting("errorCode").isEqualTo(ErrorCode.LOGIN_REQUIRED);
+  }
+
+  @Test
+  void subscribeRoomTopicAsMemberPasses() {
+    given(tokenDenylist.isDenied("jti-1")).willReturn(false);
+    given(subscriptionAuthorizer.canSubscribe(eq("/topic/rooms/7"), any())).willReturn(true);
+    StompHeaderAccessor accessor = accessor(StompCommand.SUBSCRIBE);
+    accessor.setDestination("/topic/rooms/7");
+    accessor.setUser(principal(Instant.now().plus(Duration.ofHours(1))).toAuthentication());
+
+    assertThat(interceptor.preSend(message(accessor), channel)).isNotNull();
+  }
+
+  @Test
+  void subscribeRoomTopicAsNonMemberIsRejected() {
+    given(tokenDenylist.isDenied("jti-1")).willReturn(false);
+    given(subscriptionAuthorizer.canSubscribe(eq("/topic/rooms/8"), any())).willReturn(false);
+    StompHeaderAccessor accessor = accessor(StompCommand.SUBSCRIBE);
+    accessor.setDestination("/topic/rooms/8");
+    accessor.setUser(principal(Instant.now().plus(Duration.ofHours(1))).toAuthentication());
+
+    assertThatThrownBy(() -> interceptor.preSend(message(accessor), channel))
+        .isInstanceOf(StompAuthException.class)
+        .extracting("errorCode").isEqualTo(ErrorCode.NOT_ROOM_MEMBER);
   }
 
   @Test

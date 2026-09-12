@@ -95,11 +95,6 @@ public class ChatRoomService {
         .toList();
   }
 
-  @Transactional(readOnly = true)
-  public boolean isMember(Long roomId, Long userId) {
-    return roomMemberRepository.existsByRoomIdAndUserId(roomId, userId);
-  }
-
   private void requireMember(Long roomId, Long userId) {
     if (!roomMemberRepository.existsByRoomIdAndUserId(roomId, userId)) {
       throw new ForbiddenException(ErrorCode.NOT_ROOM_MEMBER);

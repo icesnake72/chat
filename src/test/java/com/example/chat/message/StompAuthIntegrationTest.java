@@ -49,7 +49,11 @@ class StompAuthIntegrationTest {
   @AfterEach
   void tearDown() {
     if (session != null && session.isConnected()) {
-      session.disconnect();
+      try {
+        session.disconnect();
+      } catch (RuntimeException e) {
+        // 서버가 ERROR 후 먼저 닫은 세션 — 정리 목적이므로 무시
+      }
     }
   }
 
