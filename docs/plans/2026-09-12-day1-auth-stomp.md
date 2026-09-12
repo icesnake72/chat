@@ -333,9 +333,9 @@ DB_PASSWORD=
 
 # Redis — board-redis는 호스트 포트를 열지 않는다.
 #   docker compose 실행: compose가 REDIS_HOST=board-redis 로 덮어쓴다.
-#   ./gradlew bootRun 실행: scripts/dev_redis_proxy.sh 로 127.0.0.1:6380 → board-redis 터널을 열고 아래 값 사용
+#   ./gradlew bootRun 실행: scripts/dev_redis_proxy.sh 로 127.0.0.1:6379 → board-redis 터널을 열고 아래 값 사용
 REDIS_HOST=localhost
-REDIS_PORT=6380
+REDIS_PORT=6379
 
 # WebSocket handshake Origin 허용 패턴 (운영: https://chat.alldayai.org)
 # APP_WS_ALLOWED_ORIGINS=http://localhost:*
@@ -2555,7 +2555,7 @@ services:
 ```bash
 #!/usr/bin/env bash
 # board-redis는 호스트 포트를 열지 않는다. bootRun(호스트 JVM)에서 denylist를 읽으려면
-# board-db-net 안의 socat 컨테이너로 127.0.0.1:6380 → board-redis:6379 터널을 연다.
+# board-db-net 안의 socat 컨테이너로 127.0.0.1:6379 → board-redis:6379 터널을 연다.
 #   start: scripts/dev_redis_proxy.sh
 #   stop:  scripts/dev_redis_proxy.sh stop
 set -euo pipefail
@@ -2568,9 +2568,9 @@ if [[ "${1:-start}" == "stop" ]]; then
 fi
 
 docker rm -f "$NAME" >/dev/null 2>&1 || true
-docker run -d --name "$NAME" --network board-db-net -p 127.0.0.1:6380:6379 \
+docker run -d --name "$NAME" --network board-db-net -p 127.0.0.1:6379:6379 \
   alpine/socat TCP-LISTEN:6379,fork,reuseaddr TCP:board-redis:6379 >/dev/null
-echo "127.0.0.1:6380 -> board-redis:6379 (container $NAME)"
+echo "127.0.0.1:6379 -> board-redis:6379 (container $NAME)"
 ```
 
 - [ ] **Step 4: README.md 작성**
@@ -2588,7 +2588,7 @@ board(`../board`) 인증을 재사용하는 STOMP 채팅 서버. 설계: `docs/d
 2. `set -a; source .env; set +a; scripts/init_db.sh` — `chat` DB 생성 (1회)
 3. 실행 방법 중 하나
    - 도커: `docker compose -f docker-compose.yml -f docker-compose.local.yml up --build`
-   - bootRun: `scripts/dev_redis_proxy.sh && ./gradlew bootRun` (`.env`의 `REDIS_PORT=6380`)
+   - bootRun: `scripts/dev_redis_proxy.sh && ./gradlew bootRun` (`.env`의 `REDIS_PORT=6379`)
 4. `http://localhost:8092/index.html` 에서 board 토큰으로 CONNECT
 
 board 토큰 얻기 (로컬 board는 caddy 경유 `http://localhost`):

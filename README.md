@@ -10,7 +10,7 @@ board(`../board`) 인증을 재사용하는 STOMP 채팅 서버. 설계: `docs/d
 2. `set -a; source .env; set +a; scripts/init_db.sh` — `chat` DB 생성 (1회)
 3. 실행 방법 중 하나
    - 도커: `docker compose -f docker-compose.yml -f docker-compose.local.yml up --build`
-   - bootRun: `scripts/dev_redis_proxy.sh && ./gradlew bootRun` (`.env`의 `REDIS_PORT=6380`)
+   - bootRun: `scripts/dev_redis_proxy.sh && ./gradlew bootRun` (`.env`의 `REDIS_PORT=6379`)
 4. `http://localhost:8092/index.html` 에서 board 토큰으로 CONNECT
 
 board 토큰 얻기 (로컬 board는 caddy 경유 `http://localhost`):

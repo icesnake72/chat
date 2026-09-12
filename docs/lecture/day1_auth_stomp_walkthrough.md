@@ -435,9 +435,9 @@ DB_PASSWORD=
 
 # Redis — board-redis는 호스트 포트를 열지 않는다.
 #   docker compose 실행: compose가 REDIS_HOST=board-redis 로 덮어쓴다.
-#   ./gradlew bootRun 실행: scripts/dev_redis_proxy.sh 로 127.0.0.1:6380 → board-redis 터널을 열고 아래 값 사용
+#   ./gradlew bootRun 실행: scripts/dev_redis_proxy.sh 로 127.0.0.1:6379 → board-redis 터널을 열고 아래 값 사용
 REDIS_HOST=localhost
-REDIS_PORT=6380
+REDIS_PORT=6379
 
 # WebSocket handshake Origin 허용 패턴 (운영: https://chat.alldayai.org)
 # APP_WS_ALLOWED_ORIGINS=http://localhost:*
@@ -2668,7 +2668,7 @@ services:
 ```bash
 #!/usr/bin/env bash
 # board-redis는 호스트 포트를 열지 않는다. bootRun(호스트 JVM)에서 denylist를 읽으려면
-# board-db-net 안의 socat 컨테이너로 127.0.0.1:6380 → board-redis:6379 터널을 연다.
+# board-db-net 안의 socat 컨테이너로 127.0.0.1:6379 → board-redis:6379 터널을 연다.
 #   start: scripts/dev_redis_proxy.sh
 #   stop:  scripts/dev_redis_proxy.sh stop
 set -euo pipefail
@@ -2681,9 +2681,9 @@ if [[ "${1:-start}" == "stop" ]]; then
 fi
 
 docker rm -f "$NAME" >/dev/null 2>&1 || true
-docker run -d --name "$NAME" --network board-db-net -p 127.0.0.1:6380:6379 \
+docker run -d --name "$NAME" --network board-db-net -p 127.0.0.1:6379:6379 \
   alpine/socat TCP-LISTEN:6379,fork,reuseaddr TCP:board-redis:6379 >/dev/null
-echo "127.0.0.1:6380 -> board-redis:6379 (container $NAME)"
+echo "127.0.0.1:6379 -> board-redis:6379 (container $NAME)"
 ```
 
 **`README.md`**
@@ -2701,7 +2701,7 @@ board(`../board`) 인증을 재사용하는 STOMP 채팅 서버. 설계: `docs/d
 2. `set -a; source .env; set +a; scripts/init_db.sh` — `chat` DB 생성 (1회)
 3. 실행 방법 중 하나
    - 도커: `docker compose -f docker-compose.yml -f docker-compose.local.yml up --build`
-   - bootRun: `scripts/dev_redis_proxy.sh && ./gradlew bootRun` (`.env`의 `REDIS_PORT=6380`)
+   - bootRun: `scripts/dev_redis_proxy.sh && ./gradlew bootRun` (`.env`의 `REDIS_PORT=6379`)
 4. `http://localhost:8092/index.html` 에서 board 토큰으로 CONNECT
 
 board 토큰 얻기 (로컬 board는 caddy 경유 `http://localhost`):
@@ -2719,7 +2719,7 @@ board 토큰 얻기 (로컬 board는 caddy 경유 `http://localhost`):
 |---|---|
 | `networks.board-db-net.external: true` | board compose가 만든 네트워크를 만들지도 지우지도 않고 참여만 |
 | `REDIS_HOST: board-redis` | 컨테이너명 DNS. board compose의 서비스명 `redis`는 그 프로젝트 안에서만 별칭이다 |
-| `env_file: .env` + `environment` | `.env`의 `JWT_SECRET`·`DB_PASSWORD`를 넣고, 호스트용 값(`DB_HOST=localhost`, `REDIS_PORT=6380`)은 `environment`가 덮어쓴다 |
+| `env_file: .env` + `environment` | `.env`의 `JWT_SECRET`·`DB_PASSWORD`를 넣고, 호스트용 값(`DB_HOST=localhost`, `REDIS_HOST=localhost`)은 `environment`가 컨테이너명으로 덮어쓴다 |
 | healthcheck `/actuator/health` | 4절에서 추가한 actuator. UP이면 MySQL과 Redis 연결이 모두 성공한 것 |
 
 **기동과 확인**
@@ -2751,7 +2751,7 @@ git commit -m "feat: 로컬 도커 실행 — board-db-net 합류 compose, Docke
 | 증상 | 원인 | 해결 |
 |---|---|---|
 | 모든 요청이 401, 로그에 `JWT signature does not match` | `JWT_SECRET`이 board와 다름 | board `application.yaml`의 `jwt.secret` 값을 `.env`에 복사 |
-| 로그아웃했는데 chat이 계속 200 | chat이 다른 Redis를 보고 있다 (호스트 6379의 다른 컨테이너 등) | compose 실행 또는 `scripts/dev_redis_proxy.sh` + `REDIS_PORT=6380` |
+| 로그아웃했는데 chat이 계속 200 | chat이 `board-redis`가 아닌 다른 Redis를 보고 있다 (호스트 6379에 다른 Redis 컨테이너가 떠 있는 경우 등) | compose 실행 또는 `scripts/dev_redis_proxy.sh`. 6379를 점유한 다른 컨테이너가 있으면 먼저 정리 |
 | `/me`가 401인데 토큰은 유효 | `board.users`에 없거나 프로필이 없는 사용자 | `docker exec mysql-8 mysql -e "SELECT u.username, p.nickname FROM board.users u LEFT JOIN board.user_profiles p ON p.user_id=u.id"` |
 | WebSocket 핸드셰이크 403 | Origin 불일치 (Vite dev 5173 등) | `APP_WS_ALLOWED_ORIGINS=http://localhost:*` (기본값) 또는 운영 도메인 |
 | `Could not resolve placeholder 'JWT_SECRET'` | `.env` 없음 | `cp .env.example .env` 후 채움. 의도된 fail-fast |
