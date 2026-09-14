@@ -59,7 +59,7 @@ flowchart LR
 |---|---|
 | 인프라 | board compose가 띄운 `mysql-8`, `board-redis`를 그대로 사용. `chat` DB는 `scripts/init_db.sh`가 `CREATE DATABASE IF NOT EXISTS chat` |
 | 백엔드 | `./gradlew bootRun` (포트 8092) 또는 `docker compose up --build` |
-| 프론트 | `npm run dev`. Vite 프록시: `/api/v1/auth` → `http://localhost:8090`, `/api/v1/chat` → `http://localhost:8092`, `/ws` → `ws://localhost:8092` |
+| 프론트 | `npm run dev`. Vite 프록시: `/api/v1/auth` → `http://localhost`(caddy 경유 board. 8090은 호스트에 열려 있지 않다), `/api/v1/chat` → `http://localhost:8092`, `/ws` → `ws://localhost:8092` |
 | 비밀값 | `.env`(gitignore)에 `JWT_SECRET`(board와 동일 값), `DB_*`. `.env.example`에 키 이름만 |
 
 > 주의: board는 운영에서도 `application.yaml`의 `jwt.secret` 기본값을 쓴다. chat은 기본값을 두지 않으므로 그 값을 `.env`와 GitHub Secret `JWT_SECRET`에 옮겨야 한다. 값이 다르면 모든 CONNECT가 401로 거부된다.
@@ -110,7 +110,7 @@ frontend/
 ├── src
 │   ├── api          client.js (메모리 토큰 + 401 reissue 인터셉터), auth.js, chat.js
 │   ├── auth         AuthContext.jsx, authContext.js
-│   ├── ws           stompClient.js, useRoomSubscription.js, useLobbySubscription.js
+│   ├── ws           chatSocket.js(stompjs 래퍼), SocketProvider.jsx, socketContext.js, useSubscription.js
 │   ├── pages        LoginPage, LobbyPage, RoomPage
 │   ├── components   Layout, RoomList, CreateRoomForm, MessageList, MessageInput, MemberList
 │   ├── routes       ProtectedRoute.jsx
