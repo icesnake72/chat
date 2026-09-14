@@ -301,6 +301,9 @@ management:
     web:
       exposure:
         include: health
+  health:
+    redis:
+      enabled: false   # 테스트엔 Redis가 없다 — health가 DOWN(503)이 되지 않게 지표만 끈다
 ```
 
 `jwt.secret` 값은 `"test-secret-for-chat-unit-tests-only-1234567890"`의 Base64다(HS256은 32바이트 이상 필요). 테스트 리소스라 커밋해도 된다. `spring.sql.init.schema-locations`가 다음 파일을 기동 시 실행한다.
@@ -2760,6 +2763,7 @@ git commit -m "feat: 로컬 도커 실행 — board-db-net 합류 compose, Docke
 | 4절 직후 `bootRun`이 Basic 인증을 요구 | `SecurityConfig` 전이라 Boot 기본 보안 | 정상. 10절에서 사라진다 |
 | `SUBSCRIBE` 직후 `SEND`했는데 메시지가 안 옴 | 인바운드 채널이 비동기라 구독 등록 전에 전송됨 | 테스트에선 300ms 대기, 실제 클라이언트는 구독 콜백 후 전송 |
 | 통합 테스트 tearDown에서 `closed session` 예외 | 서버가 ERROR 후 소켓을 먼저 닫음 | 12.4의 try/catch |
+| 테스트 `healthIsPublic`이 503 | `/actuator/health`가 Redis 지표를 포함하는데 테스트엔 Redis가 없음 | 테스트 yaml의 `management.health.redis.enabled: false` (4절). 호스트 6379에 우연히 Redis가 떠 있으면 통과해 버려 눈치채기 어렵다 |
 | `Using generated security password` 로그 | `UserDetailsService` 빈이 없어 Boot가 기본 사용자를 만듦 | 무해. chat은 폼 로그인을 쓰지 않는다 |
 
 ---

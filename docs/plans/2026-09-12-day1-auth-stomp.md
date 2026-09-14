@@ -209,6 +209,9 @@ management:
     web:
       exposure:
         include: health
+  health:
+    redis:
+      enabled: false
 ```
 
 - [ ] **Step 4: schema-board.sql 작성** (`src/test/resources/schema-board.sql`)
