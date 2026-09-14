@@ -1,5 +1,7 @@
 # 3일차 React 채팅 클라이언트 구현 계획
 
+> **상태 (2026-09-15): 이 저장소에서 구현하지 않는다.** 채팅 UI는 board 프로젝트의 프론트엔드(`../board/frontend`)에 통합하기로 결정했다. 아래 Task 1~10의 파일 구조·코드는 board 프론트에 옮겨 넣을 때의 참고용이며, 이 저장소에서 실제로 진행하는 것은 Task 0(서버 heartbeat)뿐이다. 통합에 필요한 기능 범위는 `docs/design/2026-09-12-stomp-chat-design.md` 옆의 `docs/design/frontend_integration_scope.md` 참고.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** board 계정으로 로그인해 로비에서 방을 만들고 입장하며, 방 안에서 실시간으로 대화하고 이력을 거슬러 읽는 React 클라이언트를 완성한다. 토큰 만료·로그아웃·네트워크 단절에 대한 재연결 정책을 포함한다.
