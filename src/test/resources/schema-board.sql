@@ -28,8 +28,10 @@ CREATE TABLE IF NOT EXISTS board.user_profiles (
 MERGE INTO board.users (id, username, email, password, role, provider, created_at, updated_at)
   KEY (id) VALUES
   (1, 'alice', 'alice@example.com', 'x', 'USER', 'LOCAL', NOW(), NOW()),
-  (2, 'noprofile', 'noprofile@example.com', 'x', 'USER', 'LOCAL', NOW(), NOW());
+  (2, 'noprofile', 'noprofile@example.com', 'x', 'USER', 'LOCAL', NOW(), NOW()),
+  (3, 'bob', 'bob@example.com', 'x', 'USER', 'LOCAL', NOW(), NOW());
 
 MERGE INTO board.user_profiles (id, user_id, nickname, created_at, updated_at)
   KEY (id) VALUES
-  (1, 1, '앨리스', NOW(), NOW());
+  (1, 1, '앨리스', NOW(), NOW()),
+  (2, 3, '밥', NOW(), NOW());

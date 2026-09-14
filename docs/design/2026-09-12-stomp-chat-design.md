@@ -75,22 +75,26 @@ com.example.chat
 │   ├── BoardUserReader               JdbcClient로 board.users ⋈ board.user_profiles
 │   ├── ChatPrincipal                 Principal 구현 (userId, username, nickname, jti, exp)
 │   ├── JwtAuthenticationFilter       REST용, board 필터의 3분기 예외 처리 이식
-│   └── StompAuthChannelInterceptor   CONNECT 인증, SEND/SUBSCRIBE 재검사, 멤버십 확인
+│   ├── SubscriptionAuthorizer        SUBSCRIBE 인가 인터페이스 (구현은 room.RoomSubscriptionAuthorizer)
+│   └── StompAuthChannelInterceptor   CONNECT 인증, SEND/SUBSCRIBE 재검사, SUBSCRIBE 인가
 ├── room
 │   ├── ChatRoom, RoomMember          엔티티
 │   ├── ChatRoomRepository, RoomMemberRepository
 │   ├── ChatRoomService, ChatRoomController (REST)
 │   ├── RoomSecurity                  @PreAuthorize용 소유자 판정 빈
+│   ├── RoomSubscriptionAuthorizer    /topic/rooms/{id} 멤버십 (리포지토리 직접 사용 — 빈 순환 회피)
 │   └── dto
 ├── message
 │   ├── ChatMessage, MessageType      엔티티, enum(TALK, ENTER, LEAVE)
 │   ├── ChatMessageRepository
 │   ├── ChatMessageService
-│   ├── ChatMessageController         @MessageMapping
+│   ├── ChatMessageController         @MessageMapping + @MessageExceptionHandler(/user/queue/errors)
+│   ├── MessageHistoryController      GET /rooms/{id}/messages (keyset 이력 REST)
 │   ├── ChatMessagePublisher          브로커 접근 단일 지점 (SimpMessagingTemplate 래핑)
 │   └── dto
 ├── presence
-│   └── RoomPresenceTracker           세션 이벤트 기반 방별 접속자 집합
+│   ├── RoomPresenceTracker           방별 접속자 집합 (세션·구독 단위, 메모리)
+│   └── RoomPresenceListener          SessionSubscribe/Unsubscribe/Disconnect 이벤트 → tracker + ENTER/LEAVE
 └── global
     ├── config    SecurityConfig, WebSocketConfig, JpaAuditingConfig, RestAuthenticationEntryPoint, RestAccessDeniedHandler
     ├── entity    BaseTimeEntity
@@ -151,7 +155,7 @@ frontend/
 |---|---|---|---|
 | id | BIGINT | PK, AUTO_INCREMENT | keyset 커서로 사용 |
 | room_id | BIGINT | NOT NULL, FK → chat_rooms.id | |
-| sender_user_id | BIGINT | NULL | 시스템 메시지(ENTER/LEAVE)는 NULL |
+| sender_user_id | BIGINT | NULL | 시스템 메시지(ENTER/LEAVE)도 대상 사용자의 id를 저장 (누가 입장·퇴장했는지) |
 | sender_username | VARCHAR(50) | NOT NULL | 스냅샷 |
 | sender_nickname | VARCHAR(50) | NOT NULL | 발신 당시 `user_profiles.nickname` 스냅샷 |
 | type | VARCHAR(10) | NOT NULL | TALK, ENTER, LEAVE |
@@ -263,7 +267,7 @@ WHERE u.username = ?
 | 프레임 | 검사 | 실패 시 |
 |---|---|---|
 | CONNECT | 헤더 파싱 → 서명·만료 → `deny:{jti}` → `BoardUserReader` 조회 → `ChatPrincipal` 부착, 세션 속성에 jti·exp 저장 | ERROR `LOGIN_REQUIRED` (사용자 없음 포함), `TOKEN_EXPIRED` |
-| SUBSCRIBE `/topic/rooms/{id}` | exp·denylist 재검사 + 멤버십 확인 | ERROR `TOKEN_EXPIRED` / `LOGIN_REQUIRED` / `NOT_ROOM_MEMBER` |
+| SUBSCRIBE `/topic/rooms/{id}` | exp·denylist 재검사 + `SubscriptionAuthorizer`로 멤버십 확인 | ERROR `TOKEN_EXPIRED` / `LOGIN_REQUIRED` / `NOT_ROOM_MEMBER` |
 | SUBSCRIBE 그 외 | exp·denylist 재검사 | 위와 동일 |
 | SEND | exp·denylist 재검사 (멤버십은 서비스에서) | ERROR `TOKEN_EXPIRED` / `LOGIN_REQUIRED` |
 | 내부 오류 (Redis·DB) | 삼키지 않음 | ERROR `INTERNAL_ERROR` + `log.error`, fail-closed |

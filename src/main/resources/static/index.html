@@ -4,29 +4,47 @@
   <meta charset="utf-8">
   <title>chat STOMP console</title>
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 760px; margin: 2rem auto; padding: 0 1rem; }
-    label { display: block; margin-top: .75rem; font-weight: 600; }
-    input, textarea { width: 100%; box-sizing: border-box; padding: .4rem; }
+    body { font-family: system-ui, sans-serif; max-width: 860px; margin: 2rem auto; padding: 0 1rem; }
+    fieldset { margin-top: 1rem; border: 1px solid #ccc; }
+    label { display: block; margin-top: .5rem; font-weight: 600; }
+    input { width: 100%; box-sizing: border-box; padding: .4rem; }
     button { margin: .5rem .25rem 0 0; padding: .4rem .8rem; }
-    #log { background: #111; color: #ddd; padding: .75rem; height: 260px; overflow: auto; white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: .85rem; }
+    #log { background: #111; color: #ddd; padding: .75rem; height: 320px; overflow: auto; white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: .85rem; }
   </style>
 </head>
 <body>
   <h1>chat STOMP console</h1>
-  <p>board에서 로그인해 받은 access token을 붙여 넣고 CONNECT를 누른다. 로그아웃 후 SEND 하면 ERROR(LOGIN_REQUIRED)가 온다.</p>
+  <p>board에서 로그인해 받은 access token을 붙여 넣고 CONNECT. 연결되면 로비(/topic/rooms)와 개인 에러 큐(/user/queue/errors)를 자동 구독한다.</p>
 
-  <label for="token">access token</label>
-  <input id="token" placeholder="eyJhbGciOi...">
-
-  <div>
+  <fieldset>
+    <legend>연결</legend>
+    <label for="token">access token</label>
+    <input id="token" placeholder="eyJhbGciOi...">
     <button id="connect">CONNECT</button>
-    <button id="subscribe" disabled>SUBSCRIBE /topic/echo</button>
     <button id="disconnect" disabled>DISCONNECT</button>
-  </div>
+  </fieldset>
 
-  <label for="content">message</label>
-  <input id="content" value="hello">
-  <button id="send" disabled>SEND /app/echo</button>
+  <fieldset>
+    <legend>방 (REST)</legend>
+    <label for="roomName">새 방 이름</label>
+    <input id="roomName" value="general">
+    <button id="createRoom" disabled>CREATE ROOM</button>
+    <button id="listRooms" disabled>LIST ROOMS</button>
+    <label for="roomId">room id</label>
+    <input id="roomId" placeholder="1">
+    <button id="join" disabled>JOIN</button>
+    <button id="history" disabled>HISTORY</button>
+    <button id="members" disabled>MEMBERS</button>
+  </fieldset>
+
+  <fieldset>
+    <legend>메시지 (STOMP)</legend>
+    <button id="subscribe" disabled>SUBSCRIBE /topic/rooms/{id}</button>
+    <button id="unsubscribe" disabled>UNSUBSCRIBE</button>
+    <label for="content">message</label>
+    <input id="content" value="hello">
+    <button id="send" disabled>SEND /app/rooms/{id}/messages</button>
+  </fieldset>
 
   <label>log</label>
   <div id="log"></div>
@@ -35,17 +53,41 @@
   <script>
     const $ = (id) => document.getElementById(id);
     const log = (line) => { $('log').textContent += `[${new Date().toLocaleTimeString()}] ${line}\n`; $('log').scrollTop = $('log').scrollHeight; };
-    const setConnected = (on) => { $('subscribe').disabled = !on; $('send').disabled = !on; $('disconnect').disabled = !on; $('connect').disabled = on; };
+    const token = () => $('token').value.trim();
+    const roomId = () => $('roomId').value.trim();
+    const setConnected = (on) => {
+      ['disconnect', 'createRoom', 'listRooms', 'join', 'history', 'members', 'subscribe', 'send'].forEach((id) => { $(id).disabled = !on; });
+      $('connect').disabled = on;
+      if (!on) $('unsubscribe').disabled = true;
+    };
 
     let client = null;
+    let roomSubscription = null;
+
+    // REST: same-origin + Bearer. 401이면 board에서 reissue 후 토큰을 다시 붙여 넣는다 (3일차에 자동화).
+    async function api(method, path, body) {
+      const res = await fetch(path, {
+        method,
+        headers: { Authorization: 'Bearer ' + token(), ...(body ? { 'Content-Type': 'application/json' } : {}) },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      const text = await res.text();
+      log(`${method} ${path} → ${res.status} ${text.slice(0, 400)}`);
+      return res.ok && text ? JSON.parse(text) : null;
+    }
 
     $('connect').onclick = () => {
       const wsUrl = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws';
       client = new StompJs.Client({
         brokerURL: wsUrl,
-        connectHeaders: { Authorization: 'Bearer ' + $('token').value.trim() },
+        connectHeaders: { Authorization: 'Bearer ' + token() },
         reconnectDelay: 0,
-        onConnect: () => { log('CONNECTED'); setConnected(true); },
+        onConnect: () => {
+          log('CONNECTED');
+          setConnected(true);
+          client.subscribe('/topic/rooms', (m) => log('ROOM EVENT ' + m.body));
+          client.subscribe('/user/queue/errors', (m) => log('USER ERROR ' + m.body));
+        },
         onStompError: (frame) => { log(`ERROR code=${frame.headers.code} message=${frame.headers.message}`); setConnected(false); },
         onWebSocketClose: () => { log('websocket closed'); setConnected(false); },
         debug: (msg) => { if (msg.startsWith('>>>') || msg.startsWith('<<<')) log(msg.trim()); },
@@ -53,16 +95,29 @@
       client.activate();
     };
 
-    $('subscribe').onclick = () => {
-      client.subscribe('/topic/echo', (message) => log('MESSAGE ' + message.body));
-      log('subscribed /topic/echo');
-    };
-
-    $('send').onclick = () => {
-      client.publish({ destination: '/app/echo', body: JSON.stringify({ content: $('content').value }) });
-    };
-
     $('disconnect').onclick = () => { client.deactivate(); setConnected(false); log('DISCONNECT'); };
+
+    $('createRoom').onclick = async () => {
+      const room = await api('POST', '/api/v1/chat/rooms', { name: $('roomName').value });
+      if (room) $('roomId').value = room.id;
+    };
+    $('listRooms').onclick = () => api('GET', '/api/v1/chat/rooms');
+    $('join').onclick = () => api('POST', `/api/v1/chat/rooms/${roomId()}/join`);
+    $('history').onclick = () => api('GET', `/api/v1/chat/rooms/${roomId()}/messages?size=20`);
+    $('members').onclick = () => api('GET', `/api/v1/chat/rooms/${roomId()}/members`);
+
+    $('subscribe').onclick = () => {
+      roomSubscription = client.subscribe(`/topic/rooms/${roomId()}`, (m) => log('MESSAGE ' + m.body));
+      $('unsubscribe').disabled = false;
+      log(`subscribed /topic/rooms/${roomId()}`);
+    };
+    $('unsubscribe').onclick = () => {
+      if (roomSubscription) { roomSubscription.unsubscribe(); roomSubscription = null; log('unsubscribed'); }
+      $('unsubscribe').disabled = true;
+    };
+    $('send').onclick = () => {
+      client.publish({ destination: `/app/rooms/${roomId()}/messages`, body: JSON.stringify({ content: $('content').value }) });
+    };
   </script>
 </body>
 </html>

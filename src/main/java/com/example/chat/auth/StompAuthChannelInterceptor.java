@@ -22,6 +22,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
   private final BearerTokenAuthenticator authenticator;
   private final JwtTokenProvider tokenProvider;
   private final TokenDenylist tokenDenylist;
+  private final SubscriptionAuthorizer subscriptionAuthorizer;
 
   @Override
   public Message<?> preSend(Message<?> message, MessageChannel channel) {
@@ -32,11 +33,20 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     }
     switch (accessor.getCommand()) {
       case CONNECT -> authenticateConnect(accessor);
-      case SEND, SUBSCRIBE -> requireLivePrincipal(accessor);
+      case SEND -> requireLivePrincipal(accessor);
+      case SUBSCRIBE -> authorizeSubscribe(accessor);
       default -> {
       }
     }
     return message;
+  }
+
+  // 인증(살아 있는 토큰) 다음에 인가(이 destination을 구독해도 되는가)
+  private void authorizeSubscribe(StompHeaderAccessor accessor) {
+    ChatPrincipal principal = requireLivePrincipal(accessor);
+    if (!subscriptionAuthorizer.canSubscribe(accessor.getDestination(), principal)) {
+      throw new StompAuthException(ErrorCode.NOT_ROOM_MEMBER);
+    }
   }
 
   private void authenticateConnect(StompHeaderAccessor accessor) {
@@ -50,7 +60,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     log.debug("STOMP CONNECT authenticated: username={}", principal.username());
   }
 
-  private void requireLivePrincipal(StompHeaderAccessor accessor) {
+  private ChatPrincipal requireLivePrincipal(StompHeaderAccessor accessor) {
     ChatPrincipal principal = ChatPrincipal.from(accessor.getUser())
         .orElseThrow(() -> new StompAuthException(ErrorCode.LOGIN_REQUIRED));
     if (principal.isExpired(Instant.now())) {
@@ -59,5 +69,6 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     if (tokenDenylist.isDenied(principal.jti())) {
       throw new StompAuthException(ErrorCode.LOGIN_REQUIRED);
     }
+    return principal;
   }
 }
