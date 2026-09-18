@@ -26,7 +26,7 @@ scripts/init_db.sh
 BUILD="--build"
 [[ "${1:-}" == "--no-build" ]] && BUILD="--no-build"
 echo "▶ 기동 ($BUILD) — healthy 까지 대기"
-docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --wait $BUILD
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --wait --remove-orphans $BUILD
 
 echo "▶ 상태"
 docker compose -f docker-compose.yml -f docker-compose.local.yml ps
@@ -34,5 +34,5 @@ curl -s http://localhost:8092/actuator/health; echo
 echo
 echo "콘솔:  http://localhost:8092/index.html"
 echo "검증:  scripts/smoke_test.sh"
-echo "로그:  docker compose -f docker-compose.yml -f docker-compose.local.yml logs -f app"
+echo "로그:  docker compose -f docker-compose.yml -f docker-compose.local.yml logs -f chat-app"
 echo "종료:  scripts/dev_down.sh"

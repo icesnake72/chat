@@ -433,8 +433,9 @@ flowchart TD
 
 | 서비스 | 이미지 | 컨테이너명 | 포트 publish | 네트워크 |
 |---|---|---|---|---|
-| app | `ghcr.io/icesnake72/chat-app:latest` | chat-app | 없음 (내부 8092) | board-db-net (external) |
-| frontend | `ghcr.io/icesnake72/chat-frontend:latest` | chat-frontend | 없음 (내부 80) | board-db-net (external) |
+| chat-app | `ghcr.io/icesnake72/chat-app:latest` | chat-app | 없음 (내부 8092) | board-db-net (external) |
+
+> 2026-09-19 갱신: 채팅 UI는 board 프론트엔드에 통합되므로 chat-frontend 서비스·별도 서브도메인·caddy 블록은 없다(`frontend_integration_scope.md`). 서비스명은 board compose의 `app`(board-app)과 겹치지 않도록 `chat-app`이다 — Compose `include`로 board 프로젝트에 합칠 때 같은 이름이면 board 정의가 chat 정의를 조용히 덮어쓴다(실측). board compose에 `include: [../chat/docker-compose.yml]` 한 줄을 넣으면 `docker compose up` 한 번으로 board와 chat이 함께 뜬다.
 
 | 환경변수 | 출처 | 비고 |
 |---|---|---|

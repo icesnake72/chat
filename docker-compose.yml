@@ -6,7 +6,7 @@
 name: chat
 
 services:
-  app:
+  chat-app:
     build:
       context: .
       dockerfile: Dockerfile

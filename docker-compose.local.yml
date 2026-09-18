@@ -1,5 +1,5 @@
 # 로컬 개발 전용 오버라이드 — 호스트에서 http://localhost:8092 로 접근할 수 있게 포트만 연다.
 services:
-  app:
+  chat-app:
     ports:
       - "127.0.0.1:8092:8092"
