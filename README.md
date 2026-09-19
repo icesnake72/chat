@@ -66,6 +66,10 @@ services:
 scripts/dev_redis_proxy.sh && ./gradlew bootRun    # .env: REDIS_HOST=localhost, REDIS_PORT=6379
 ```
 
+## 배포
+
+main에 push하면 `.github/workflows/build.yml`이 테스트 후 이미지를 `ghcr.io/icesnake72/chat-app:latest`로 올린다. 서버 기동은 board 저장소의 배포 파이프라인이 `include`로 이 compose를 끌어와 함께 한다(`docs/plans/2026-09-20-day4-deploy.md`, 검증은 `docs/deploy/server_checklist.md`).
+
 ## 단위·통합 테스트
 
 ```bash

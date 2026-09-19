@@ -429,66 +429,42 @@ flowchart TD
 
 ## 9. 배포
 
-### 9.1 chat compose
+> 2026-09-20 갱신: 프론트가 board에 통합되면서 chat은 **이미지 하나**만 배포한다. 별도 서브도메인·chat-frontend 컨테이너·caddy 블록은 없다. 실행 계획은 `docs/plans/2026-09-20-day4-deploy.md`, 서버 검증은 `docs/deploy/server_checklist.md`.
 
-| 서비스 | 이미지 | 컨테이너명 | 포트 publish | 네트워크 |
-|---|---|---|---|---|
-| chat-app | `ghcr.io/icesnake72/chat-app:latest` | chat-app | 없음 (내부 8092) | board-db-net (external) |
+### 9.1 구성
 
-> 2026-09-19 갱신: 채팅 UI는 board 프론트엔드에 통합되므로 chat-frontend 서비스·별도 서브도메인·caddy 블록은 없다(`frontend_integration_scope.md`). 서비스명은 board compose의 `app`(board-app)과 겹치지 않도록 `chat-app`이다 — Compose `include`로 board 프로젝트에 합칠 때 같은 이름이면 board 정의가 chat 정의를 조용히 덮어쓴다(실측). board compose에 `include: [../chat/docker-compose.yml]` 한 줄을 넣으면 `docker compose up` 한 번으로 board와 chat이 함께 뜬다.
-
-| 환경변수 | 출처 | 비고 |
+| 구성요소 | 위치 | 역할 |
 |---|---|---|
-| JWT_SECRET | GitHub Secret → `.env` | board와 동일 값 필수 |
-| DB_HOST, DB_PORT, DB_NAME(=chat), DB_USERNAME, DB_PASSWORD | Secret + compose | `mysql-8`, board와 같은 계정 |
-| APP_BOARD_SCHEMA | compose 기본 `board` | |
-| REDIS_HOST | compose 기본 `board-redis` | 컨테이너명으로 접근 |
-| TZ | `Asia/Seoul` | |
+| chat CI (`.github/workflows/build.yml`) | chat 저장소 | main push 시 `./gradlew test` → 이미지 빌드 → `ghcr.io/icesnake72/chat-app:latest`(+sha) push. 배포 잡 없음 |
+| board compose `include` | board 저장소 | `include: [../chat/docker-compose.yml]` + `env_file: ../chat/.env`. `chat-app` 서비스에 `DB_NAME: chat`, `APP_WS_ALLOWED_ORIGINS`, `depends_on: redis` 오버라이드 |
+| board `deploy.sh` | board 저장소 | `~/chat` clone/reset, `~/chat/.env` 생성(`JWT_SECRET`, `DB_*`), `chat` DB 생성, `docker compose pull && up` |
+| board nginx | board 저장소 | `/api/v1/chat/` → `chat-app:8092`, `/ws` → 같은 곳 + Upgrade 헤더 |
 
-헬스체크: `curl -fsS http://localhost:8092/actuator/health` (Actuator 추가, `health`만 노출).
+| 환경변수 (`~/chat/.env` 또는 compose) | 출처 | 비고 |
+|---|---|---|
+| JWT_SECRET | GitHub Secret → board `deploy.sh` | board와 동일 값 필수. board `.env`에도 같은 값을 넣어 두 서비스가 같은 Secret을 읽게 한다 |
+| DB_NAME=chat, DB_USERNAME, DB_PASSWORD | Secret + `deploy.sh` | `DB_HOST=mysql-8`은 chat compose가 고정 |
+| REDIS_HOST=board-redis | chat compose 고정 | 컨테이너명. 같은 프로젝트라 `redis`도 되지만 단독 실행 호환을 위해 컨테이너명 |
+| APP_WS_ALLOWED_ORIGINS | board compose 오버라이드 | `https://sbs.alldayai.org,http://localhost,http://localhost:*` |
 
-### 9.2 nginx 프록시 규칙 (chat-frontend)
+헬스체크: `curl -fsS http://localhost:8092/actuator/health` (컨테이너 내부).
 
-```nginx
-resolver 127.0.0.11 valid=10s ipv6=off;
-set $board board-app:8090;
-set $chat chat-app:8092;
+### 9.2 트래픽 경로
 
-location /api/v1/auth/ { proxy_pass http://$board; ... }
-location /api/v1/chat/ { proxy_pass http://$chat; ... }
-location /ws {
-  proxy_pass http://$chat;
-  proxy_http_version 1.1;
-  proxy_set_header Upgrade $http_upgrade;
-  proxy_set_header Connection "upgrade";
-  proxy_read_timeout 3600s;
-  proxy_send_timeout 3600s;
-}
+```
+브라우저 (https://sbs.alldayai.org)
+  → board-caddy (TLS)
+    → board-frontend nginx
+        ├ /api/v1/chat/*  → chat-app:8092
+        ├ /ws             → chat-app:8092 (WebSocket upgrade)
+        └ 그 외           → board-app:8090 / 정적
 ```
 
-`X-Forwarded-Proto`는 board와 같은 `map` 승계 방식을 쓴다. board-app이 refresh 쿠키의 `Secure`를 결정하는 데는 영향이 없지만 규칙을 통일한다.
+### 9.3 배포 순서
 
-### 9.3 board 쪽 1회 작업 (사용자 직접)
-
-| 작업 | 내용 |
-|---|---|
-| Cloudflare DNS | `chat.alldayai.org` A 레코드 → `3.34.173.34`, DNS only |
-| Caddyfile 블록 추가 | `chat.alldayai.org { reverse_proxy chat-frontend:80 { header_up X-Forwarded-Port {http.request.local.port} } }` |
-| 반영 | board 배포 흐름의 `caddy reload` 또는 수동 `docker compose exec caddy caddy reload` |
-
-chat 컨테이너는 board-caddy와 같은 `board-db-net`에 있으므로 컨테이너명으로 바로 해석된다.
-
-### 9.4 CI/CD (`.github/workflows/deploy.yml`)
-
-| 잡 | 내용 |
-|---|---|
-| test | JDK 21, `./gradlew test` (H2) + Node 20, `npm ci && npm run lint && npm test && npm run build` |
-| build | GHCR에 `chat-app`, `chat-frontend` push (buildx, GHA 캐시) |
-| deploy | SSH → `~/chat` clone/reset → `scripts/deploy.sh` (`.env` 생성, `chat` DB 생성, `docker login`, `pull`, `up -d --no-build --wait --remove-orphans`) |
-
-GitHub Secrets: `LIGHTSAIL_HOST`, `LIGHTSAIL_USER`, `LIGHTSAIL_SSH_KEY`, `JWT_SECRET`, `DB_USERNAME`, `DB_PASSWORD`. board와 같은 서버라 SSH 정보는 동일하다.
-
----
+1. chat main push → CI가 이미지 push (먼저)
+2. board main push → board deploy가 `~/chat` 준비 + `docker compose pull`(chat-app 포함) + `up --wait`
+3. `docs/deploy/server_checklist.md`로 검증
 
 ## 10. 테스트 전략
 
