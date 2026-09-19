@@ -2,9 +2,11 @@ package com.example.chat.global.config;
 
 import com.example.chat.auth.StompAuthChannelInterceptor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
@@ -13,6 +15,8 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @Configuration
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
+
+  private static final long HEARTBEAT_MS = 10_000;
 
   private final StompAuthChannelInterceptor authInterceptor;
   private final StompErrorHandler errorHandler;
@@ -36,7 +40,11 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
   @Override
   public void configureMessageBroker(MessageBrokerRegistry registry) {
-    registry.enableSimpleBroker("/topic", "/queue");
+    // heartbeat 10s/10s — 클라이언트가 끊긴 연결을 감지해 재연결하려면 서버가 주기적으로 신호를 보내야 한다.
+    // simple broker의 heartbeat는 TaskScheduler가 있어야 켜진다.
+    registry.enableSimpleBroker("/topic", "/queue")
+        .setHeartbeatValue(new long[] {HEARTBEAT_MS, HEARTBEAT_MS})
+        .setTaskScheduler(heartbeatScheduler());
     registry.setApplicationDestinationPrefixes("/app");
     registry.setUserDestinationPrefix("/user");
   }
@@ -44,5 +52,15 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
   @Override
   public void configureClientInboundChannel(ChannelRegistration registration) {
     registration.interceptors(authInterceptor);
+  }
+
+  // Boot의 기본 TaskScheduler 빈은 @EnableScheduling 없이는 만들어지지 않아 전용으로 둔다.
+  @Bean
+  public ThreadPoolTaskScheduler heartbeatScheduler() {
+    ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+    scheduler.setPoolSize(1);
+    scheduler.setThreadNamePrefix("ws-heartbeat-");
+    scheduler.initialize();
+    return scheduler;
   }
 }

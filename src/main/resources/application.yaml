@@ -30,7 +30,9 @@ app:
   board:
     schema: ${APP_BOARD_SCHEMA:board}
   ws:
-    allowed-origin-patterns: ${APP_WS_ALLOWED_ORIGINS:http://localhost:*}
+    # 브라우저는 기본 포트(80/443)를 Origin에서 생략한다 — caddy 경유 http://localhost 는 포트 없는 형태라 둘 다 필요.
+    # 운영: APP_WS_ALLOWED_ORIGINS=https://sbs.alldayai.org (쉼표로 여러 개)
+    allowed-origin-patterns: ${APP_WS_ALLOWED_ORIGINS:http://localhost,http://localhost:*}
 
 management:
   endpoints:

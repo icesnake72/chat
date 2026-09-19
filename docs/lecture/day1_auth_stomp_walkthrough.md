@@ -242,7 +242,7 @@ app:
   board:
     schema: ${APP_BOARD_SCHEMA:board}
   ws:
-    allowed-origin-patterns: ${APP_WS_ALLOWED_ORIGINS:http://localhost:*}
+    allowed-origin-patterns: ${APP_WS_ALLOWED_ORIGINS:http://localhost,http://localhost:*}
 
 management:
   endpoints:
@@ -2756,7 +2756,7 @@ git commit -m "feat: 로컬 도커 실행 — board-db-net 합류 compose, Docke
 | 모든 요청이 401, 로그에 `JWT signature does not match` | `JWT_SECRET`이 board와 다름 | board `application.yaml`의 `jwt.secret` 값을 `.env`에 복사 |
 | 로그아웃했는데 chat이 계속 200 | chat이 `board-redis`가 아닌 다른 Redis를 보고 있다 (호스트 6379에 다른 Redis 컨테이너가 떠 있는 경우 등) | compose 실행 또는 `scripts/dev_redis_proxy.sh`. 6379를 점유한 다른 컨테이너가 있으면 먼저 정리 |
 | `/me`가 401인데 토큰은 유효 | `board.users`에 없거나 프로필이 없는 사용자 | `docker exec mysql-8 mysql -e "SELECT u.username, p.nickname FROM board.users u LEFT JOIN board.user_profiles p ON p.user_id=u.id"` |
-| WebSocket 핸드셰이크 403 | Origin 불일치 (Vite dev 5173 등) | `APP_WS_ALLOWED_ORIGINS=http://localhost:*` (기본값) 또는 운영 도메인 |
+| WebSocket 핸드셰이크 403 | Origin 불일치. 브라우저는 80/443 포트를 Origin에서 **생략**하므로 caddy 경유 접속의 Origin은 `http://localhost`이고, 패턴 `http://localhost:*`만으로는 거부된다(실측) | 기본값 `http://localhost,http://localhost:*`. 운영은 `APP_WS_ALLOWED_ORIGINS=https://sbs.alldayai.org` |
 | `Could not resolve placeholder 'JWT_SECRET'` | `.env` 없음 | `cp .env.example .env` 후 채움. 의도된 fail-fast |
 | 인증 API가 500 | Redis 다운 (fail-closed) | `docker ps` 로 `board-redis` 확인. 우회하지 않는다 |
 | 컴파일 오류 `AutoConfigureMockMvc` 못 찾음 | Boot 4 패키지 이동 | 2절 표 참고 |
