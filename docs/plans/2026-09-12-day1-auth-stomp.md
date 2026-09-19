@@ -160,7 +160,7 @@ app:
   board:
     schema: ${APP_BOARD_SCHEMA:board}
   ws:
-    allowed-origin-patterns: ${APP_WS_ALLOWED_ORIGINS:http://localhost:*}
+    allowed-origin-patterns: ${APP_WS_ALLOWED_ORIGINS:http://localhost,http://localhost:*}
 
 management:
   endpoints:

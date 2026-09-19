@@ -64,7 +64,7 @@ content-type:application/json
 | `ERROR` | `message` (+ 우리는 `code`) | 오류. STOMP 규약상 ERROR 뒤에는 연결이 닫힌다 |
 | `RECEIPT` | `receipt-id` | 요청 처리 확인 (receipt 헤더를 붙였을 때만) |
 
-**heartbeat**: `CONNECT`와 `CONNECTED`의 `heart-beat:cx,cy` 헤더로 양쪽이 "몇 ms마다 살아 있음을 보내겠다"를 협상한다. 값이 `0,0`이면 없음. 1·2일차 서버는 `0,0`이고, 3일차 계획 Task 0에서 `10000,10000`으로 켠다.
+**heartbeat**: `CONNECT`와 `CONNECTED`의 `heart-beat:cx,cy` 헤더로 양쪽이 "몇 ms마다 살아 있음을 보내겠다"를 협상한다. 값이 `0,0`이면 없음. 1·2일차 서버는 `0,0`이었고, 3일차 준비(`feature/day3-server-prep`)에서 `WebSocketConfig`에 `ThreadPoolTaskScheduler`를 붙여 `10000,10000`으로 켰다.
 
 **destination 규칙** (`WebSocketConfig`에서 정한 것)
 
