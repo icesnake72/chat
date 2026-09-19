@@ -15,7 +15,7 @@ chat은 서버에서 **이미지 하나**로 존재한다. chat 저장소의 CI�
 | 누가 기동하나 | board `deploy.sh`가 `~/chat` clone → `~/chat/.env` 생성 → `docker compose pull && up --wait` (include된 chat-app 포함) |
 | 트래픽 | `caddy → board-frontend nginx → chat-app:8092` (`/api/v1/chat/`, `/ws`) |
 | 결정한 것 | chat 저장소·GHCR 패키지 **public** (board 배포 토큰이 chat 자원에 접근할 필요가 없어짐) |
-| 남은 결정 | `JWT_SECRET`을 Secret으로 승격할 때 기존 값 유지(세션 유지) vs 새 값(재로그인 필요) |
+| `JWT_SECRET` | **기존 yaml 기본값 유지**로 결정(2026-09-20). Secret에 같은 값을 등록해 board·chat이 함께 읽는다. 주의: board 저장소가 public이라 이 값은 공개돼 있다 — 강의용으로 감수. 교체 절차는 9절 |
 
 **배포 흐름**
 
@@ -288,7 +288,7 @@ deploy 잡의 `env:`에 `JWT_SECRET: ${{ secrets.JWT_SECRET }}`, `with.envs:` �
 
 | Secret | 값 | 비고 |
 |---|---|---|
-| `JWT_SECRET` | board `application.yaml`의 `jwt.secret` 기본값과 **같은 값** 또는 새 값 | 같은 값이면 기존 refresh 세션 유지. 새 값이면 배포 직후 모든 사용자 재로그인. 어느 쪽이든 board와 chat이 같은 값을 읽는 것이 핵심 |
+| `JWT_SECRET` | board `application.yaml`의 `jwt.secret` 기본값과 **같은 값** (결정됨) | 기존 refresh 세션이 유지된다. board `.env`에도 주입해 두면 나중에 값을 바꿀 때 yaml을 건드리지 않고 Secret만 바꾸면 된다 |
 
 ### 6.6 nginx — 변경 없음
 
@@ -347,6 +347,6 @@ curl -s https://sbs.alldayai.org/api/v1/chat/me -H "Authorization: Bearer $TOKEN
 |---|---|
 | 특정 버전으로 고정 배포 | `latest` 대신 sha 태그를 `~/chat/docker-compose.yml`의 `image:`에 지정. 롤백도 같은 방법 |
 | 이미지 서명·취약점 검사 | CI에 `docker/scout-action` 또는 Trivy 단계 추가 |
-| Secret 교체 | `JWT_SECRET` 교체 시 board·chat 동시 재배포 + 사용자 재로그인 공지 |
+| Secret 교체 | 현재 값은 public 저장소의 yaml 기본값이라 공개돼 있다. 교체 시: 새 Base64 값(32바이트 이상)을 Secret에 넣고 board·chat 동시 재배포 → 기존 access(1시간)·refresh(Redis `rt:*`)가 전부 무효 → 사용자 재로그인 공지. board yaml 기본값은 그대로 두어도 `.env`가 우선한다 |
 | 무중단 | 현재는 `up`이 컨테이너를 교체하는 수 초간 WebSocket이 끊긴다. 클라이언트 재연결(3일차 UI)이 흡수한다. 진짜 무중단은 인스턴스 2대 + Redis 백플레인(설계 11절) |
 | 서버 빌드 금지 유지 | `--no-build`가 안전핀. 2GB 무스왑 인스턴스에서 Gradle을 돌리지 않는다 |
